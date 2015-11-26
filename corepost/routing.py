@@ -22,11 +22,11 @@ import uuid
 
 class UrlRouter:
     ''' Common class for containing info related to routing a request to a function '''
-    
+
     __urlMatcher = re.compile(r"<(int|float|uuid|):?([^/]+)>")
     __urlRegexReplace = {"":r"(?P<arg>([^/]+))","int":r"(?P<arg>\d+)","float":r"(?P<arg>\d+.?\d*)","uuid":r"(?P<arg>[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})"}
     __typeConverters = {"int":int,"float":float,"uuid":uuid.UUID}
-    
+
     def __init__(self,f,url,methods,accepts,produces,cache):
         self.__f = f
         self.__url = url
@@ -37,7 +37,7 @@ class UrlRouter:
         self.__argConverters = {} # dict of arg names -> group index
         self.__validators = {}
         self.__mandatory = getMandatoryArgumentNames(f)[2:]
-        
+
     def compileMatcherForFullUrl(self):
         """Compiles the regex matches once the URL has been updated to include the full path from the parent class"""
         #parse URL into regex used for matching
@@ -56,17 +56,17 @@ class UrlRouter:
                                     UrlRouter.__urlRegexReplace[match[0]].replace("arg",match[1]))
 
         self.__matcher = re.compile(self.__matchUrl)
-        
-        
+
+
     @property
     def cache(self):
         '''Indicates if this URL should be cached or not'''
-        return self.__cache    
+        return self.__cache
 
     @property
     def methods(self):
         return self.__methods
-    
+
     @property
     def url(self):
         return self.__url
@@ -78,7 +78,7 @@ class UrlRouter:
     def addValidator(self,fieldName,validator):
         '''Adds additional field-specific formencode validators'''
         self.__validators[fieldName] = validator
-        
+
     def getArguments(self,url):
         '''
         Returns None if nothing matched (i.e. URL does not match), empty dict if no args found (i,e, static URL)
@@ -96,23 +96,23 @@ class UrlRouter:
             return args
         else:
             return None
-        
+
     def call(self,instance,request,**kwargs):
         '''Forwards call to underlying method'''
         for arg in self.__mandatory:
             if arg not in kwargs:
                 raise TypeError("Missing mandatory argument '%s'" % arg)
         return self.__f(instance,request,**kwargs)
-    
+
     def __str__(self):
-        return "%s %s" % (self.url, self.methods) 
+        return "%s %s" % (self.url, self.methods)
 
 class UrlRouterInstance():
     """Combines a UrlRouter with a class instance it should be executed against"""
     def __init__(self,clazz,urlRouter):
         self.clazz = clazz
         self.urlRouter = urlRouter
-        
+
     def __str__(self):
         return self.urlRouter.url
 
@@ -124,20 +124,20 @@ class CachedUrl:
     def __init__(self,urlRouterInstance,args):
         self.__urlRouterInstance = urlRouterInstance
         self.__args = args
-        
+
     @property
     def urlRouterInstance(self):
         return self.__urlRouterInstance
-    
+
     @property
     def args(self):
         return self.__args
-    
+
 class RequestRouter:
     '''
     Class that handles request->method routing functionality to any type of resource
     '''
-    
+
     def __init__(self,restServiceContainer,schema=None,filters=()):
         '''
         Constructor
@@ -176,7 +176,7 @@ class RequestRouter:
         for service in restServiceContainer.services:
             # check if the service has a root path defined, which is optional
             rootPath = service.__class__.path if "path" in service.__class__.__dict__ else ""
-            
+
             for key in service.__class__.__dict__:
                 func = service.__class__.__dict__[key]
                 # handle REST resources directly on the CorePost resource
@@ -213,15 +213,15 @@ class RequestRouter:
 
             # standardize URL and remove trailing "/" if necessary
             standardized_postpath = request.postpath if (request.postpath[-1] != '' or request.postpath == ['']) else request.postpath[:-1]
-            path = '/'.join(standardized_postpath) 
+            path = '/'.join(standardized_postpath)
 
-            contentType =  MediaType.WILDCARD if HttpHeader.CONTENT_TYPE not in request.received_headers else request.received_headers[HttpHeader.CONTENT_TYPE]       
+            contentType =  MediaType.WILDCARD if HttpHeader.CONTENT_TYPE not in request.received_headers else request.received_headers[HttpHeader.CONTENT_TYPE]
 
             urlRouterInstance, pathargs = None, None
             # fetch URL arguments <-> function from cache if hit at least once before
             if contentType in self.__cachedUrls[request.method][path]:
                 cachedUrl = self.__cachedUrls[request.method][path][contentType]
-                urlRouterInstance,pathargs = cachedUrl.urlRouterInstance, cachedUrl.args 
+                urlRouterInstance,pathargs = cachedUrl.urlRouterInstance, cachedUrl.args
             else:
                 # first time this URL is called
                 instance = None
@@ -241,7 +241,7 @@ class RequestRouter:
                         # see if the path arguments match up against any function @route definition
                         args = instance.urlRouter.getArguments(path)
                         if args != None:
-                           
+
                             if instance.urlRouter.cache:
                                 self.__cachedUrls[request.method][path][contentType] = CachedUrl(instance, args)
                             urlRouterInstance,pathargs = instance,args
@@ -249,7 +249,7 @@ class RequestRouter:
             #actual call
             if urlRouterInstance != None and pathargs != None:
                 allargs = copy.deepcopy(pathargs)
-                
+
                 try:
                     # if POST/PUT, check if we need to automatically parse JSON, YAML, XML
                     self.__parseRequestData(request)
@@ -257,7 +257,7 @@ class RequestRouter:
                     self.__addRequestArguments(request, allargs)
                     urlRouter = urlRouterInstance.urlRouter
                     val = urlRouter.call(urlRouterInstance.clazz,request,**allargs)
-                 
+
                     #handle Deferreds natively
                     if isinstance(val,defer.Deferred):
                         # add callback to finish the request
@@ -269,12 +269,12 @@ class RequestRouter:
                         if request.method == Http.POST:
                             if hasattr(request, 'code'):
                                 if request.code == 200:
-                                    request.setResponseCode(201) 
+                                    request.setResponseCode(201)
                             else:
                                 request.setResponseCode(201)
-                        
+
                         response = self.__generateResponse(request, val, request.code)
-                    
+
                 except exceptions.TypeError as ex:
                     log.msg(ex,logLevel=logging.WARN)
                     response = self.__createErrorResponse(request,400,"%s" % ex)
@@ -290,25 +290,25 @@ class RequestRouter:
                 except Exception as ex:
                     log.err(ex)
                     response =  self.__createErrorResponse(request,500,"Unexpected server error: %s\n%s" % (type(ex),ex))
-                    
+
             #if a url is defined, but not the requested method
             elif not request.method in self.__urlsMehods.get(path, []) and self.__urlsMehods.get(path, []) != []:
-                
+
                 response = self.__createErrorResponse(request,501, "")
             else:
                 log.msg("URL %s not found" % path,logLevel=logging.WARN)
                 response = self.__createErrorResponse(request,404,"URL '%s' not found\n" % request.path)
-        
+
         except Exception as ex:
             log.err(ex)
             response = self.__createErrorResponse(request,500,"Internal server error: %s" % ex)
-        
+
         # response handling
         if response != None and len(self.__responseFilters) > 0:
             self.__filterResponses(request,response)
 
         return response
-    
+
     def __generateResponse(self,request,response,code=200):
         """
         Takes care of automatically rendering the response and converting it to appropriate format (text,XML,JSON,YAML)
@@ -365,7 +365,7 @@ class RequestRouter:
     def __createErrorResponse(self,request,code,message):
         """Common method for rendering errors"""
         return Response(code=code, entity=message, headers={"content-type": MediaType.TEXT_PLAIN})
- 
+
     def __parseRequestData(self,request):
         '''Automatically parses JSON,XML,YAML if present'''
         if request.method in (Http.POST,Http.PUT) and HttpHeader.CONTENT_TYPE in request.received_headers.keys():
@@ -378,12 +378,12 @@ class RequestRouter:
                 except Exception as ex:
                     raise TypeError("Unable to parse JSON body: %s" % ex)
             elif contentType in (MediaType.APPLICATION_XML,MediaType.TEXT_XML):
-                try: 
+                try:
                     request.xml = ElementTree.XML(request.data)
                 except Exception as ex:
                     raise TypeError("Unable to parse XML body: %s" % ex)
             elif contentType == MediaType.TEXT_YAML:
-                try: 
+                try:
                     request.yaml = yaml.safe_load(request.data)
                 except Exception as ex:
                     raise TypeError("Unable to parse YAML body: %s" % ex)
@@ -405,11 +405,11 @@ class RequestRouter:
                 # maintain first instance of an argument always
                 safeDictUpdate(allargs,arg,requestargs[arg][0])
         elif hasattr(request,'json'):
-            # if YAML parse root elements instead of form elements   
+            # if YAML parse root elements instead of form elements
             for key in request.json.keys():
                 safeDictUpdate(allargs, key, request.json[key])
         elif hasattr(request,'yaml'):
-            # if YAML parse root elements instead of form elements   
+            # if YAML parse root elements instead of form elements
             for key in request.yaml.keys():
                 safeDictUpdate(allargs, key, request.yaml[key])
         elif hasattr(request,'xml'):
@@ -418,14 +418,14 @@ class RequestRouter:
                 safeDictUpdate(allargs, key, request.xml.attrib[key])
             for el in request.xml.findall("*"):
                 safeDictUpdate(allargs, el.tag,el.text)
-        
-            
+
+
     def __filterRequests(self,request):
         """Filters incoming requests"""
         for webFilter in self.__requestFilters:
             webFilter.filterRequest(request)
-            
+
     def __filterResponses(self,request,response):
         """Filters incoming requests"""
         for webFilter in self.__responseFilters:
-            webFilter.filterResponse(request,response)            
+            webFilter.filterResponse(request,response)
