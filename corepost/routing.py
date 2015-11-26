@@ -288,7 +288,9 @@ class RequestRouter:
                     response = ex.response
 
                 except Exception as ex:
-                    log.err(ex)
+                    import traceback
+                    traceback.print_exc()
+#                    log.err(ex)
                     response =  self.__createErrorResponse(request,500,"Unexpected server error: %s\n%s" % (type(ex),ex))
 
             #if a url is defined, but not the requested method
@@ -300,7 +302,9 @@ class RequestRouter:
                 response = self.__createErrorResponse(request,404,"URL '%s' not found\n" % request.path)
 
         except Exception as ex:
-            log.err(ex)
+            import traceback
+            traceback.print_exc()
+#            log.err(ex)
             response = self.__createErrorResponse(request,500,"Internal server error: %s" % ex)
 
         # response handling
