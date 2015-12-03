@@ -75,7 +75,8 @@ class RESTResource(Resource):
             request.finish()
 
     def __applyResponse(self,request,code,headers={"content-type":MediaType.TEXT_PLAIN}):
-        request.setResponseCode(code)
+        if code is not None:
+            request.setResponseCode(code)
         if headers != None:
             for header,value in headers.iteritems():
                 request.setHeader(header, value)

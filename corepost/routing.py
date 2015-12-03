@@ -313,7 +313,7 @@ class RequestRouter:
 
         return response
 
-    def __generateResponse(self,request,response,code=200):
+    def __generateResponse(self,request,response,code=None):
         """
         Takes care of automatically rendering the response and converting it to appropriate format (text,XML,JSON,YAML)
         depending on what the caller can accept. Returns Response
